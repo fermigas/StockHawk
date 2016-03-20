@@ -6,12 +6,17 @@ import android.content.OperationApplicationException;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.os.RemoteException;
+import android.support.annotation.NonNull;
 import android.util.Log;
 import com.google.android.gms.gcm.GcmNetworkManager;
 import com.google.android.gms.gcm.GcmTaskService;
 import com.google.android.gms.gcm.TaskParams;
+import com.google.gson.Gson;
+import com.sam_chordas.android.stockhawk.data.HistoricalQuoteColumns;
+import com.sam_chordas.android.stockhawk.data.HistoricalQuoteResults;
 import com.sam_chordas.android.stockhawk.data.QuoteColumns;
 import com.sam_chordas.android.stockhawk.data.QuoteProvider;
+import com.sam_chordas.android.stockhawk.data.QuoteResult;
 import com.sam_chordas.android.stockhawk.rest.Utils;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
@@ -19,6 +24,9 @@ import com.squareup.okhttp.Response;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by sam_chordas on 9/30/15.
@@ -43,89 +51,39 @@ public class StockTaskService extends GcmTaskService{
         .url(url)
         .build();
 
+    client.setConnectTimeout(30, TimeUnit.SECONDS); // connect timeout
+    client.setReadTimeout(30, TimeUnit.SECONDS);    // socket timeout
     Response response = client.newCall(request).execute();
     return response.body().string();
   }
 
   @Override
   public int onRunTask(TaskParams params){
-    Cursor initQueryCursor;
-    if (mContext == null){
+    if (mContext == null)
       mContext = this;
-    }
-    StringBuilder urlStringBuilder = new StringBuilder();
-    try{
-      // Base URL for the Yahoo query
-      urlStringBuilder.append("https://query.yahooapis.com/v1/public/yql?q=");
-      urlStringBuilder.append(URLEncoder.encode("select * from yahoo.finance.quotes where symbol "
-        + "in (", "UTF-8"));
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-    if (params.getTag().equals("init") || params.getTag().equals("periodic")){
-      isUpdate = true;
-      initQueryCursor = mContext.getContentResolver().query(QuoteProvider.Quotes.CONTENT_URI,
-          new String[] { "Distinct " + QuoteColumns.SYMBOL }, null,
-          null, null);
-      if (initQueryCursor.getCount() == 0 || initQueryCursor == null){
-        // Init task. Populates DB with quotes for the symbols seen below
-        try {
-          urlStringBuilder.append(
-              URLEncoder.encode("\"YHOO\",\"AAPL\",\"GOOG\",\"MSFT\")", "UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-          e.printStackTrace();
-        }
-      } else if (initQueryCursor != null){
-        DatabaseUtils.dumpCursor(initQueryCursor);
-        initQueryCursor.moveToFirst();
-        for (int i = 0; i < initQueryCursor.getCount(); i++){
-          mStoredSymbols.append("\""+
-              initQueryCursor.getString(initQueryCursor.getColumnIndex("symbol"))+"\",");
-          initQueryCursor.moveToNext();
-        }
-        mStoredSymbols.replace(mStoredSymbols.length() - 1, mStoredSymbols.length(), ")");
-        try {
-          urlStringBuilder.append(URLEncoder.encode(mStoredSymbols.toString(), "UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-          e.printStackTrace();
-        }
-      }
-    } else if (params.getTag().equals("add")){
-      isUpdate = false;
-      // get symbol from params.getExtra and build query
-      String stockInput = params.getExtras().getString("symbol");
-      try {
-        urlStringBuilder.append(URLEncoder.encode("\""+stockInput+"\")", "UTF-8"));
-      } catch (UnsupportedEncodingException e){
-        e.printStackTrace();
-      }
-    }
-    // finalize the URL for the API query.
-    urlStringBuilder.append("&format=json&diagnostics=true&env=store%3A%2F%2Fdatatables."
-        + "org%2Falltableswithkeys&callback=");
+
+    StringBuilder urlStringBuilder = buildYahooStockDataUrl(params, new StringBuilder());
 
     String urlString;
     String getResponse;
     int result = GcmNetworkManager.RESULT_FAILURE;
+
 
     if (urlStringBuilder != null){
       urlString = urlStringBuilder.toString();
       try{
         getResponse = fetchData(urlString);
         result = GcmNetworkManager.RESULT_SUCCESS;
-        try {
-          ContentValues contentValues = new ContentValues();
-          // update ISCURRENT to 0 (false) so new data is current
-          if (isUpdate){
-            contentValues.put(QuoteColumns.ISCURRENT, 0);
-            mContext.getContentResolver().update(QuoteProvider.Quotes.CONTENT_URI, contentValues,
-                null, null);
-          }
-          mContext.getContentResolver().applyBatch(QuoteProvider.AUTHORITY,
-              Utils.quoteJsonToContentVals(getResponse));
-        }catch (RemoteException | OperationApplicationException e){
-          Log.e(LOG_TAG, "Error applying batch insert", e);
+
+        if (params.getTag().equals("historical")) {
+          processHistoricalQuotes(getResponse);
         }
+        else {
+          if(params.getTag().equals("add") && !isSymbolValid(getResponse))
+            return GcmNetworkManager.RESULT_FAILURE;
+          processQuotes(getResponse);
+        }
+
       } catch (IOException e){
         e.printStackTrace();
       }
@@ -134,4 +92,208 @@ public class StockTaskService extends GcmTaskService{
     return result;
   }
 
+  @NonNull
+  private Boolean isSymbolValid(String getResponse) {
+
+    QuoteResult quoteResult;
+
+    Gson gson = new Gson();
+    quoteResult = gson.fromJson(getResponse, QuoteResult.class);
+
+    QuoteResult.QueryEntity.ResultsEntity.QuoteEntity qr =
+            quoteResult.getQuery().getResults().getQuote();
+
+    if( qr.getBid() == null)
+      return false;
+    else
+      return true;
+  }
+
+
+  private void processHistoricalQuotes(String getResponse) {
+
+    HistoricalQuoteResults historicalQuoteResults;
+
+    Gson gson = new Gson();
+    historicalQuoteResults = gson.fromJson(getResponse, HistoricalQuoteResults.class);
+
+    ContentValues[] bulkInsertContentValues = createBulkInsertContentValues(historicalQuoteResults);
+
+    int insertCount = mContext.getContentResolver()
+            .bulkInsert(QuoteProvider.HistoricalQuotes.CONTENT_URI, bulkInsertContentValues);
+
+
+    return;
+  }
+
+  private ContentValues[] createBulkInsertContentValues( HistoricalQuoteResults hqr) {
+
+    int quoteCount = hqr.getQuery().getCount();
+    ContentValues[] quoteValues = new ContentValues[quoteCount];
+
+    for (int i = 0; i < quoteCount ; i++) {
+      ContentValues qv = new ContentValues();
+
+      HistoricalQuoteResults.QueryEntity.ResultsEntity.QuoteEntity qe =
+              hqr.getQuery().getResults().getQuote().get(i);
+
+      qv.put(HistoricalQuoteColumns.SYMBOL, qe.getSymbol());
+      qv.put(HistoricalQuoteColumns.CLOSE_DATE, qe.getDate());
+      qv.put(HistoricalQuoteColumns.OPEN, Float.valueOf(qe.getOpen()));
+      qv.put(HistoricalQuoteColumns.HIGH, Float.valueOf(qe.getHigh()));
+      qv.put(HistoricalQuoteColumns.LOW, Float.valueOf(qe.getLow()));
+      qv.put(HistoricalQuoteColumns.CLOSE, Float.valueOf(qe.getClose()));
+      qv.put(HistoricalQuoteColumns.ADJ_CLOSE, Float.valueOf(qe.getAdj_Close()));
+
+      quoteValues[i] = qv;
+    }
+
+    return quoteValues;
+  }
+
+  private void processQuotes(String getResponse) {
+    try {
+      ContentValues contentValues = new ContentValues();
+      // update ISCURRENT to 0 (false) so new data is current
+      if (isUpdate){
+        contentValues.put(QuoteColumns.ISCURRENT, 0);
+        mContext.getContentResolver().update(QuoteProvider.Quotes.CONTENT_URI, contentValues,
+            null, null);
+      }
+      mContext.getContentResolver().applyBatch(QuoteProvider.AUTHORITY,
+          Utils.quoteJsonToContentVals(getResponse));
+    }catch (RemoteException | OperationApplicationException e){
+      Log.e(LOG_TAG, "Error applying batch insert", e);
+    }
+  }
+
+  private StringBuilder buildYahooStockDataUrl(TaskParams params, StringBuilder urlStringBuilder) {
+    // Base URL for the Yahoo query
+    urlStringBuilder.append("https://query.yahooapis.com/v1/public/yql?q=");
+
+    String diagnostics = "false" ;
+    if (params.getTag().equals("init") || params.getTag().equals("periodic")){
+      attachQuoteQuery(urlStringBuilder);
+      buildInitWhereClause(urlStringBuilder);
+    }
+    else if (params.getTag().equals("add")){
+      attachQuoteQuery(urlStringBuilder);
+      buildAddWhereClause(params, urlStringBuilder);
+    }
+    else if (params.getTag().equals("historical")){
+      attachHistoricalDataQuery(urlStringBuilder);
+      buildHistoricalDataWhereClause(params, urlStringBuilder);
+      diagnostics = "false";
+    }
+    // finalize the URL for the API query.
+    urlStringBuilder.append("&format=json&diagnostics=" + diagnostics +
+            "&env=store%3A%2F%2Fdatatables" +
+            ".org%2Falltableswithkeys&callback=");
+
+    return urlStringBuilder;
+  }
+
+
+  private void  attachQuoteQuery(StringBuilder urlStringBuilder) {
+    try{
+      urlStringBuilder.append(URLEncoder.encode(
+              "select Change, symbol, Bid, ChangeinPercent from yahoo.finance.quotes where symbol "
+              + "in (", "UTF-8"));
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+  }
+
+
+  private void buildInitWhereClause(StringBuilder urlStringBuilder) {
+    Cursor initQueryCursor;
+    isUpdate = true;
+    initQueryCursor = mContext.getContentResolver().query(QuoteProvider.Quotes.CONTENT_URI,
+        new String[] { "Distinct " + QuoteColumns.SYMBOL }, null,
+        null, null);
+    if (initQueryCursor.getCount() == 0 || initQueryCursor == null){
+      // Init task. Populates DB with quotes for the symbols seen below
+      try {
+        urlStringBuilder.append(
+            URLEncoder.encode("\"YHOO\",\"AAPL\",\"GOOG\",\"MSFT\")", "UTF-8"));
+      } catch (UnsupportedEncodingException e) {
+        e.printStackTrace();
+      }
+    } else if (initQueryCursor != null){
+      DatabaseUtils.dumpCursor(initQueryCursor);
+      initQueryCursor.moveToFirst();
+      for (int i = 0; i < initQueryCursor.getCount(); i++){
+        mStoredSymbols.append("\""+
+            initQueryCursor.getString(initQueryCursor.getColumnIndex("symbol"))+"\",");
+        initQueryCursor.moveToNext();
+      }
+      mStoredSymbols.replace(mStoredSymbols.length() - 1, mStoredSymbols.length(), ")");
+      try {
+        urlStringBuilder.append(URLEncoder.encode(mStoredSymbols.toString(), "UTF-8"));
+      } catch (UnsupportedEncodingException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
+
+  private void attachHistoricalDataQuery (StringBuilder urlStringBuilder) {
+    try{
+      urlStringBuilder.append(URLEncoder.encode(
+              "select * from yahoo.finance.historicaldata where symbol= ", "UTF-8"));
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void buildHistoricalDataWhereClause(TaskParams params, StringBuilder urlStringBuilder) {
+
+    // get symbol from params.getExtra and build query
+    String stockInput = params.getExtras().getString("symbol");
+    try {
+      urlStringBuilder.append(URLEncoder.encode( "\""+stockInput+"\"", "UTF-8"));
+    } catch (UnsupportedEncodingException e){
+      e.printStackTrace();
+    }
+
+    try {
+      urlStringBuilder.append(URLEncoder.encode( getTheLast30Days(), "UTF-8"));
+    } catch (UnsupportedEncodingException e){
+      e.printStackTrace();
+    }
+
+  }
+
+  private void buildAddWhereClause(TaskParams params, StringBuilder urlStringBuilder) {
+    isUpdate = false;
+    // get symbol from params.getExtra and build query
+    String stockInput = params.getExtras().getString("symbol");
+    try {
+      urlStringBuilder.append(URLEncoder.encode("\""+stockInput+"\")", "UTF-8"));
+    } catch (UnsupportedEncodingException e){
+      e.printStackTrace();
+    }
+  }
+
+  private String getTheLast30Days() {
+
+    Calendar c = Calendar.getInstance();
+    Date date = new Date();
+    c.setTime(date);
+    String endDate = toDateString(c);
+    c.add(Calendar.DATE, -30);   // Next month
+    String startDate = toDateString(c);
+
+    return  " and startDate = \"" +  startDate + "\"  and endDate = \"" +
+            endDate  + "\" ";
+
+  }
+
+  private String toDateString(Calendar c) {
+
+    return  Integer.toString( c.get(Calendar.YEAR)  ) + "-" +
+            Integer.toString( 1+ c.get(Calendar.MONTH) ) + "-" +  // Month zero-offset
+            Integer.toString( c.get(Calendar.DATE)  );
+
+  }
 }

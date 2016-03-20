@@ -50,9 +50,14 @@ public class Utils {
   }
 
   public static String truncateBidPrice(String bidPrice){
-    bidPrice = String.format("%.2f", Float.parseFloat(bidPrice));
+      try {
+        bidPrice = String.format("%.2f", Float.parseFloat(bidPrice));
+      } catch (NumberFormatException e) {
+        e.printStackTrace();
+      }
     return bidPrice;
-  }
+
+   }
 
   public static String truncateChange(String change, boolean isPercentChange){
     String weight = change.substring(0,1);

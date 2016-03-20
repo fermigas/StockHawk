@@ -52,6 +52,7 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
   private Context mContext;
   private Cursor mCursor;
   boolean isConnected;
+  private Intent mLineGraphIntent;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -64,9 +65,11 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
     isConnected = activeNetwork != null &&
         activeNetwork.isConnectedOrConnecting();
     setContentView(R.layout.activity_my_stocks);
-    // The intent service is for executing immediate pulls from the Yahoo API
+    // The mLineGraphIntent service is for executing immediate pulls from the Yahoo API
     // GCMTaskService can only schedule tasks, they cannot execute immediately
     mServiceIntent = new Intent(this, StockIntentService.class);
+    mLineGraphIntent = new Intent(this, DetailActivity.class);
+
     if (savedInstanceState == null){
       // Run the initialize task service so that some stocks appear upon an empty database
       mServiceIntent.putExtra("tag", "init");
@@ -86,6 +89,17 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
               @Override public void onItemClick(View v, int position) {
                 //TODO:
                 // do something on item click
+                mCursor.moveToPosition(position);
+                String symbol = mCursor.getString(mCursor.getColumnIndex("symbol"));
+                mServiceIntent.putExtra("tag", "historical");
+                mServiceIntent.putExtra("symbol", symbol);
+                startService(mServiceIntent);
+
+                // Add Historical Data graph here
+                // graphToast();
+                mLineGraphIntent.putExtra("symbol", symbol);
+                startActivity(mLineGraphIntent);
+
               }
             }));
     recyclerView.setAdapter(mCursorAdapter);
@@ -164,6 +178,10 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
 
   public void networkToast(){
     Toast.makeText(mContext, getString(R.string.network_toast), Toast.LENGTH_SHORT).show();
+  }
+
+  public void graphToast(){
+    Toast.makeText(mContext, "Graph Launcher", Toast.LENGTH_SHORT).show();
   }
 
   public void restoreActionBar() {

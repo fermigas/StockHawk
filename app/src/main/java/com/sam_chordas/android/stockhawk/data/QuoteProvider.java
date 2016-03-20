@@ -1,9 +1,13 @@
 package com.sam_chordas.android.stockhawk.data;
 
+import android.content.ContentValues;
+import android.content.Context;
 import android.net.Uri;
 import net.simonvt.schematic.annotation.ContentProvider;
 import net.simonvt.schematic.annotation.ContentUri;
 import net.simonvt.schematic.annotation.InexactContentUri;
+import net.simonvt.schematic.annotation.NotifyBulkInsert;
+import net.simonvt.schematic.annotation.NotifyInsert;
 import net.simonvt.schematic.annotation.TableEndpoint;
 
 /**
@@ -17,6 +21,7 @@ public class QuoteProvider {
 
   interface Path{
     String QUOTES = "quotes";
+    String HISTORICAL_QUOTES = "historical_quotes";
   }
 
   private static Uri buildUri(String... paths){
@@ -46,4 +51,43 @@ public class QuoteProvider {
       return buildUri(Path.QUOTES, symbol);
     }
   }
+
+
+  @TableEndpoint(table = QuoteDatabase.HISTORICAL_QUOTES)
+  public static class HistoricalQuotes{
+    @ContentUri(
+      path = Path.HISTORICAL_QUOTES,
+      type = "vnd.android.cursor.dir/historical_quote"
+            // TODO: Sort by date here, somthing like:    defaultSort = ListColumns.TITLE + " ASC")
+    )
+    public static final Uri CONTENT_URI = buildUri(Path.HISTORICAL_QUOTES);
+
+    @InexactContentUri(
+            name = "QUOTE_ID",
+            path = Path.HISTORICAL_QUOTES + "/*",
+            type = "vnd.android.cursor.item/quote",
+            whereColumn = HistoricalQuoteColumns.SYMBOL,
+            pathSegment = 1
+    )
+    public static Uri withSymbol(String symbol){
+      return buildUri(Path.HISTORICAL_QUOTES, symbol);
+    }
+
+
+    // TODO: Add @InexactContentURi for retrieving most recent date
+
+
+    //  TODO:  Add @NotifyBulkInsert for handling insert of new historical data
+
+    @NotifyBulkInsert(paths = Path.HISTORICAL_QUOTES)
+    public static Uri[] onBulkInsert(Context context, Uri uri, ContentValues[] values, long[] ids) {
+      return new Uri[] {
+              uri,
+      };
+    }
+
+
+  }
+
+
 }
