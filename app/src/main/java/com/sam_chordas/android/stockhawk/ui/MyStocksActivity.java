@@ -19,6 +19,7 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.sam_chordas.android.stockhawk.R;
@@ -53,6 +54,7 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
   private Cursor mCursor;
   boolean isConnected;
   private Intent mLineGraphIntent;
+  private TextView emptyRecyclerView;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +67,8 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
     isConnected = activeNetwork != null &&
         activeNetwork.isConnectedOrConnecting();
     setContentView(R.layout.activity_my_stocks);
+    emptyRecyclerView = (TextView) findViewById(R.id.recyclerview_empty_quotes);
+
     // The mLineGraphIntent service is for executing immediate pulls from the Yahoo API
     // GCMTaskService can only schedule tasks, they cannot execute immediately
     mServiceIntent = new Intent(this, StockIntentService.class);
@@ -73,17 +77,14 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
     if (savedInstanceState == null){
       // Run the initialize task service so that some stocks appear upon an empty database
       mServiceIntent.putExtra("tag", "init");
-      if (isConnected){
+      if (isConnected)
         startService(mServiceIntent);
-      } else{
-        networkToast();
-      }
     }
     RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
     recyclerView.setLayoutManager(new LinearLayoutManager(this));
     getLoaderManager().initLoader(CURSOR_LOADER_ID, null, this);
 
-    mCursorAdapter = new QuoteCursorAdapter(this, null);
+    mCursorAdapter = new QuoteCursorAdapter(this, null );
     recyclerView.addOnItemTouchListener(new RecyclerViewItemClickListener(this,
             new RecyclerViewItemClickListener.OnItemClickListener() {
               @Override public void onItemClick(View v, int position) {
@@ -102,6 +103,7 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
 
               }
             }));
+
     recyclerView.setAdapter(mCursorAdapter);
 
 
@@ -234,6 +236,22 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
   public void onLoadFinished(Loader<Cursor> loader, Cursor data){
     mCursorAdapter.swapCursor(data);
     mCursor = data;
+
+    updateEmptyView();
+  }
+
+  private void updateEmptyView() {
+    if(mCursorAdapter.getItemCount() == 0) {
+      if (null != emptyRecyclerView){
+        int message = R.string.no_stock_data_available;
+        if(!Utils.isNetworkAvailable(mContext)) {
+          message = R.string.no_network;
+        }
+        emptyRecyclerView.setText(message);
+      }
+    } else {
+      emptyRecyclerView.setVisibility(View.GONE);
+    }
   }
 
   @Override

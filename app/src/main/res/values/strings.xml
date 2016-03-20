@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Stock Hawk</string>
+    <string name="google_app_id">153919917233</string>
 
     <string name="action_example">Example action</string>
 
@@ -13,4 +14,6 @@
     <string name="network_toast">Uh-oh! This app requires an internet connection</string>
     <string name="title_activity_detail">DetailActivity</string>
     <string name="no_historical_data_available">No Historical Data Available</string>
+    <string name="no_stock_data_available">Although there is a network connection, no stock data has been retrieved.</string>
+    <string name="no_network">No stock information available.  The network is not available to fetch the stock data.</string>
 </resources>

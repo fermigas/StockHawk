@@ -51,8 +51,8 @@ public class StockTaskService extends GcmTaskService{
         .url(url)
         .build();
 
-    client.setConnectTimeout(30, TimeUnit.SECONDS); // connect timeout
-    client.setReadTimeout(30, TimeUnit.SECONDS);    // socket timeout
+    client.setConnectTimeout(90, TimeUnit.SECONDS); // connect timeout
+    client.setReadTimeout(90, TimeUnit.SECONDS);    // socket timeout
     Response response = client.newCall(request).execute();
     return response.body().string();
   }
