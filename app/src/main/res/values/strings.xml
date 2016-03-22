@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">Stock Hawk</string>
-    <string name="google_app_id">153919917233</string>
 
     <string name="action_example">Example action</string>
 

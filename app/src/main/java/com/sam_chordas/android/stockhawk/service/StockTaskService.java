@@ -51,8 +51,8 @@ public class StockTaskService extends GcmTaskService{
         .url(url)
         .build();
 
-    client.setConnectTimeout(90, TimeUnit.SECONDS); // connect timeout
-    client.setReadTimeout(90, TimeUnit.SECONDS);    // socket timeout
+//    client.setConnectTimeout(90, TimeUnit.SECONDS); // connect timeout
+//    client.setReadTimeout(90, TimeUnit.SECONDS);    // socket timeout
     Response response = client.newCall(request).execute();
     return response.body().string();
   }
@@ -256,12 +256,87 @@ public class StockTaskService extends GcmTaskService{
       e.printStackTrace();
     }
 
+    if(doWeHaveDataFromTheLast30Days(stockInput))
+      encodeStringForMissingDays(urlStringBuilder, stockInput);
+    else
+      encodeStringFor30Days(urlStringBuilder);
+
+  }
+
+
+  private void encodeStringForMissingDays(StringBuilder urlStringBuilder, String stockInput) {
     try {
-      urlStringBuilder.append(URLEncoder.encode( getTheLast30Days(), "UTF-8"));
-    } catch (UnsupportedEncodingException e){
+      urlStringBuilder.append(URLEncoder.encode(
+              stringForMissingDays(stockInput), "UTF-8"));
+    } catch (UnsupportedEncodingException e) {
       e.printStackTrace();
     }
+  }
 
+  private String stringForMissingDays(String stockInput) {
+
+    Calendar c = Calendar.getInstance();
+    Date date = new Date();
+    c.setTime(date);
+    String endDate = toDateStringWithDashes(c);
+    String startDate = getLastRetrievedDate(stockInput);
+    return  " and startDate = \"" +  startDate + "\"  and endDate = \"" +
+            endDate  + "\" ";
+
+  }
+
+  private String getLastRetrievedDate(String stockInput) {
+
+    Cursor initQueryCursor = null;
+    try {
+      initQueryCursor = mContext.getContentResolver().query(
+              QuoteProvider.HistoricalQuotes.CONTENT_URI,
+              new String[]{HistoricalQuoteColumns.CLOSE_DATE, HistoricalQuoteColumns.CLOSE},
+              HistoricalQuoteColumns.SYMBOL + "= ?",
+              new String[]{stockInput},
+              HistoricalQuoteColumns.CLOSE_DATE + " DESC");  // Last first
+
+      if (initQueryCursor.getCount() == 0 || initQueryCursor == null) {
+        return null;
+      } else {
+        initQueryCursor.moveToFirst();
+        int dateColumnIndex = initQueryCursor.getColumnIndex(HistoricalQuoteColumns.CLOSE_DATE);
+        String lastRetrievedDate = initQueryCursor.getString(dateColumnIndex);
+        if (lastRetrievedDate != null){
+          if(lastRetrievedDate.contains("-"))
+            return lastRetrievedDate.replace("-", "");
+        }
+        return null;
+      }
+    } finally {
+      if(initQueryCursor != null)
+        initQueryCursor.close();
+    }
+  }
+
+  private boolean doWeHaveDataFromTheLast30Days(String stockInput) {
+
+    if(getLastRetrievedDate(stockInput) == null)
+      return false;
+    return Integer.parseInt(getLastRetrievedDate(stockInput))
+            > Integer.parseInt(dateStringFrom30DaysAgo());
+  }
+
+  private String  dateStringFrom30DaysAgo() {
+    // Get string for 30 days ago
+    Calendar c = Calendar.getInstance();
+    Date date = new Date();
+    c.setTime(date);
+    c.add(Calendar.DATE, -30);   // last 30 days
+    return toDateString(c);
+  }
+
+  private void encodeStringFor30Days(StringBuilder urlStringBuilder) {
+    try {
+      urlStringBuilder.append(URLEncoder.encode(stringForTheLast30Days(), "UTF-8"));
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
   }
 
   private void buildAddWhereClause(TaskParams params, StringBuilder urlStringBuilder) {
@@ -275,25 +350,34 @@ public class StockTaskService extends GcmTaskService{
     }
   }
 
-  private String getTheLast30Days() {
+  private String stringForTheLast30Days() {
 
     Calendar c = Calendar.getInstance();
     Date date = new Date();
     c.setTime(date);
-    String endDate = toDateString(c);
-    c.add(Calendar.DATE, -30);   // Next month
-    String startDate = toDateString(c);
+    String endDate = toDateStringWithDashes(c);
+    c.add(Calendar.DATE, -30);   // last 30 days
+    String startDate = toDateStringWithDashes(c);
 
     return  " and startDate = \"" +  startDate + "\"  and endDate = \"" +
             endDate  + "\" ";
 
   }
 
-  private String toDateString(Calendar c) {
+  private String toDateStringWithDashes(Calendar c) {
 
     return  Integer.toString( c.get(Calendar.YEAR)  ) + "-" +
             Integer.toString( 1+ c.get(Calendar.MONTH) ) + "-" +  // Month zero-offset
             Integer.toString( c.get(Calendar.DATE)  );
 
   }
+
+  private String toDateString(Calendar c) {
+
+    return  Integer.toString( c.get(Calendar.YEAR)  )  +
+            Integer.toString( 1+ c.get(Calendar.MONTH) )  +  // Month zero-offset
+            Integer.toString( c.get(Calendar.DATE)  );
+
+  }
+
 }
