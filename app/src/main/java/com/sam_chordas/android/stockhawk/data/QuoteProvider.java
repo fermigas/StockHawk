@@ -58,7 +58,6 @@ public class QuoteProvider {
     @ContentUri(
       path = Path.HISTORICAL_QUOTES,
       type = "vnd.android.cursor.dir/historical_quote"
-            // TODO: Sort by date here, somthing like:    defaultSort = ListColumns.TITLE + " ASC")
     )
     public static final Uri CONTENT_URI = buildUri(Path.HISTORICAL_QUOTES);
 
@@ -73,11 +72,6 @@ public class QuoteProvider {
       return buildUri(Path.HISTORICAL_QUOTES, symbol);
     }
 
-
-    // TODO: Add @InexactContentURi for retrieving most recent date
-
-
-    //  TODO:  Add @NotifyBulkInsert for handling insert of new historical data
 
     @NotifyBulkInsert(paths = Path.HISTORICAL_QUOTES)
     public static Uri[] onBulkInsert(Context context, Uri uri, ContentValues[] values, long[] ids) {

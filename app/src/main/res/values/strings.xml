@@ -7,7 +7,7 @@
     <string name="action_change_units">Change Units</string>
     <string name="symbol_search">Symbol Search</string>
     <string name="content_test">Search for a Stock Symbol</string>
-    <string name="input_hint">FB</string>
+    <string name="input_hint" translatable="false">FB</string>
     <string name="input_prefill"></string>
     <string name="widget_title">Today\'s Market</string>
     <string name="network_toast">Uh-oh! This app requires an internet connection</string>
@@ -19,4 +19,12 @@
     <string name="stock_historical_data_line_chart">Stock Historical Data Line Chart</string>
     <string name="stock_hawk_stock_list">Stock Hawk Stock List</string>
     <string name="stock_add_floating_action_button">Floating Action Button for Adding Stocks</string>
+    <string name="recyclerview_invalid_cursor">This should only be called when Cursor is valid</string>
+    <string name="toast_stock_already_saved">This stock is already saved!</string>
+    <string name="intent_tag" translatable="false">tag</string>
+    <string name="intent_add" translatable="false">add</string>
+    <string name="intent_symbol" translatable="false">symbol</string>
+    <string name="intent_historical" translatable="false">historical</string>
+    <string name="intent_periodic" translatable="false">periodic</string>
+    <string name="batch_insert_error">Error applying batch insert</string>
 </resources>

@@ -12,6 +12,7 @@ import com.google.android.gms.gcm.GcmNetworkManager;
 import com.google.android.gms.gcm.GcmTaskService;
 import com.google.android.gms.gcm.TaskParams;
 import com.google.gson.Gson;
+import com.sam_chordas.android.stockhawk.R;
 import com.sam_chordas.android.stockhawk.data.HistoricalQuoteColumns;
 import com.sam_chordas.android.stockhawk.data.HistoricalQuoteResults;
 import com.sam_chordas.android.stockhawk.data.QuoteColumns;
@@ -51,8 +52,6 @@ public class StockTaskService extends GcmTaskService{
         .url(url)
         .build();
 
-//    client.setConnectTimeout(90, TimeUnit.SECONDS); // connect timeout
-//    client.setReadTimeout(90, TimeUnit.SECONDS);    // socket timeout
     Response response = client.newCall(request).execute();
     return response.body().string();
   }
@@ -86,6 +85,8 @@ public class StockTaskService extends GcmTaskService{
 
       } catch (IOException e){
         e.printStackTrace();
+        Log.e(LOG_TAG, urlString, e);
+
       }
     }
 
@@ -163,7 +164,7 @@ public class StockTaskService extends GcmTaskService{
       mContext.getContentResolver().applyBatch(QuoteProvider.AUTHORITY,
           Utils.quoteJsonToContentVals(getResponse));
     }catch (RemoteException | OperationApplicationException e){
-      Log.e(LOG_TAG, "Error applying batch insert", e);
+      Log.e(LOG_TAG, getString(R.string.batch_insert_error), e);
     }
   }
 

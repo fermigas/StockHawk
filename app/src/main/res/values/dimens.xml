@@ -9,4 +9,6 @@
 
     <dimen name="widget_default_height">110dp</dimen>
     <dimen name="widget_default_width">110dp</dimen>
+    <dimen name="text_padding_3dp">3dp</dimen>
+    <dimen name="text_padding_10p">10dp</dimen>
 </resources>

@@ -55,8 +55,8 @@ public class DetailActivity extends AppCompatActivity implements LoaderManager.L
     private String getSymbol() {
         Intent intent = getIntent();
         String symbol = null;
-        if (intent != null && intent.hasExtra("symbol"))
-            symbol = intent.getStringExtra("symbol");
+        if (intent != null && intent.hasExtra(getString(R.string.intent_symbol)))
+            symbol = intent.getStringExtra(getString(R.string.intent_symbol));
         return symbol;
     }
 

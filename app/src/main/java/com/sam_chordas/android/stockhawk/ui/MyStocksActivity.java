@@ -76,7 +76,7 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
 
     if (savedInstanceState == null){
       // Run the initialize task service so that some stocks appear upon an empty database
-      mServiceIntent.putExtra("tag", "init");
+      mServiceIntent.putExtra(getString(R.string.intent_tag), "init");
       if (isConnected)
         startService(mServiceIntent);
     }
@@ -88,17 +88,13 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
     recyclerView.addOnItemTouchListener(new RecyclerViewItemClickListener(this,
             new RecyclerViewItemClickListener.OnItemClickListener() {
               @Override public void onItemClick(View v, int position) {
-                //TODO:
-                // do something on item click
                 mCursor.moveToPosition(position);
-                String symbol = mCursor.getString(mCursor.getColumnIndex("symbol"));
-                mServiceIntent.putExtra("tag", "historical");
-                mServiceIntent.putExtra("symbol", symbol);
+                String symbol = mCursor.getString(mCursor.getColumnIndex(getString(R.string.intent_symbol)));
+                mServiceIntent.putExtra(getString(R.string.intent_tag),
+                        getString(R.string.intent_historical));
+                mServiceIntent.putExtra(getString(R.string.intent_symbol), symbol);
                 startService(mServiceIntent);
-
-                // Add Historical Data graph here
-                // graphToast();
-                mLineGraphIntent.putExtra("symbol", symbol);
+                mLineGraphIntent.putExtra(getString(R.string.intent_symbol), symbol);
                 startActivity(mLineGraphIntent);
 
               }
@@ -124,15 +120,15 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
                       new String[] { input.toString() }, null);
                   if (c.getCount() != 0) {
                     Toast toast =
-                        Toast.makeText(MyStocksActivity.this, "This stock is already saved!",
+                        Toast.makeText(MyStocksActivity.this, R.string.toast_stock_already_saved,
                             Toast.LENGTH_LONG);
                     toast.setGravity(Gravity.CENTER, Gravity.CENTER, 0);
                     toast.show();
                     return;
                   } else {
                     // Add the stock to DB
-                    mServiceIntent.putExtra("tag", "add");
-                    mServiceIntent.putExtra("symbol", input.toString());
+                    mServiceIntent.putExtra(getString(R.string.intent_tag), getString(R.string.intent_add));
+                    mServiceIntent.putExtra(getString(R.string.intent_symbol), input.toString());
                     startService(mServiceIntent);
                   }
                 }
@@ -153,7 +149,7 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
     if (isConnected){
       long period = 3600L;
       long flex = 10L;
-      String periodicTag = "periodic";
+      String periodicTag = getString(R.string.intent_periodic);
 
       // create a periodic task to pull stocks once every hour after the app has been opened. This
       // is so Widget data stays up to date.
@@ -180,10 +176,6 @@ public class MyStocksActivity extends AppCompatActivity implements LoaderManager
 
   public void networkToast(){
     Toast.makeText(mContext, getString(R.string.network_toast), Toast.LENGTH_SHORT).show();
-  }
-
-  public void graphToast(){
-    Toast.makeText(mContext, "Graph Launcher", Toast.LENGTH_SHORT).show();
   }
 
   public void restoreActionBar() {
