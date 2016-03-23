@@ -16,4 +16,7 @@
     <string name="no_stock_data_available">Although there is a network connection, no stock data has been retrieved.</string>
     <string name="no_network">No stock information available.  The network is not available to fetch the stock data.</string>
     <string name="stock_intent_service">Stock Intent Service</string>
+    <string name="stock_historical_data_line_chart">Stock Historical Data Line Chart</string>
+    <string name="stock_hawk_stock_list">Stock Hawk Stock List</string>
+    <string name="stock_add_floating_action_button">Floating Action Button for Adding Stocks</string>
 </resources>
