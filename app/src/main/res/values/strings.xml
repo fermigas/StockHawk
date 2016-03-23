@@ -15,4 +15,5 @@
     <string name="no_historical_data_available">No Historical Data Available</string>
     <string name="no_stock_data_available">Although there is a network connection, no stock data has been retrieved.</string>
     <string name="no_network">No stock information available.  The network is not available to fetch the stock data.</string>
+    <string name="stock_intent_service">Stock Intent Service</string>
 </resources>

@@ -45,10 +45,10 @@
         <provider
             android:name=".data.generated.QuoteProvider"
             android:authorities="com.sam_chordas.android.stockhawk.data.QuoteProvider"
-            android:exported="false" />
+            android:exported="true" />
 
         <receiver
-            android:name=".widget.QuoteWidgetProvider"
+            android:name=".widget.WidgetProvider"
             android:label="@string/widget_title">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -60,7 +60,7 @@
         </receiver>
 
         <service
-            android:name=".widget.QuoteWidgetRemoteViewsService"
+            android:name=".widget.WidgetRemoteViewsService"
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
